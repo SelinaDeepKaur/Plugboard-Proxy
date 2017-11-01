@@ -25,28 +25,24 @@ int main(int argc, char **argv)
 	    daddress =argv[index++];
 	    dport = argv[index];
     	    
-	    if(keyfile==NULL)
+	    if(keyfile==NULL || daddress == NULL || dport == NULL)
 	    {
-		printf("Keyfile not specified\n");
+		printf("Keyfile or destination address or destination port not specified\n");
                 exit(0);
     	    }
-	    if(daddress == NULL || dport == NULL)
-	    {
-		printf("destination address or destination port not specified\n");
-                exit(0);
-	    }
+	    
 	    
 	    /*printf("-l %s",serverPort);
 	    printf("-k %s",keyfile);
 	    printf("-daddress %s",daddress);
             printf("-dport %s",dport);*/
-	    if(serverPort ==NULL)
+	    if(serverPort !=NULL)
 	    {
-		
+		server();
 	    }
 	    else
 	    {
-
+		client();
 	    }
 	
 	    
