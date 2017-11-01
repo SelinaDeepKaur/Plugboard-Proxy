@@ -6,7 +6,7 @@
 #include <string.h>
 #define PORT 8080
   
-int main(int argc, char const *argv[])
+int client(int argc, char const *argv[])
 {
     struct sockaddr_in address;
     int sock = 0, valread;
