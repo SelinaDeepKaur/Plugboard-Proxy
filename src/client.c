@@ -20,7 +20,7 @@ int client(char *dAddress, char *dPort)
     }
     puts("Socket created");
      
-    server.sin_addr.s_addr = inet_addr(dAddress);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
     server.sin_family = AF_INET;
     server.sin_port = htons( atoi(dPort) );
  
@@ -37,7 +37,9 @@ int client(char *dAddress, char *dPort)
     while(1)
     {
         printf("Enter message : ");
+	//getline(stdin,message);
         scanf("%s" , message);
+	//message[strlen(message)]='\n';
          
         //Send some data
         if( send(sock , message , strlen(message) , 0) < 0)
