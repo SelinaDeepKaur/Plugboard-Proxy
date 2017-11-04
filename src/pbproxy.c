@@ -75,7 +75,7 @@ int main(int argc, char **argv)
 		
 		//dAddress = "127.0.0.1";
 
-		server(ip,dPort);
+		server(ip,dPort,serverPort,keyfile);
 	    }
 	    else
 	    {

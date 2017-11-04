@@ -60,8 +60,79 @@ int server(char *dAddress, char *dPort, char *serverPort)
 	    //Receive a message from client
 	    while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 )
 	    {
-		//Send the message back to client
-		write(client_sock , client_message , strlen(client_message));
+		
+		    /*printf("message from client, %s",client_message);
+		    int sock;
+		    struct sockaddr_in server;
+		    char message[1000] , server_reply[2000];
+		     
+		    //Create socket
+		    sock = socket(AF_INET , SOCK_STREAM , 0);
+		    if (sock == -1)
+		    {
+			printf("Could not create socket");
+		    }
+		    puts("Socket created");
+		     
+		    
+		    server.sin_addr.s_addr = inet_addr(dAddress);
+                    //server.sin_addr.s_addr = inet_addr("127.0.0.1");
+		    server.sin_family = AF_INET;
+		    server.sin_port = htons( atoi(dPort) );
+		 
+		    //Connect to remote server
+		    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+		    {
+			perror("connect failed. Error");
+			return 1;
+		    }
+		     
+		    puts("Connected\n");
+		     
+		    //keep communicating with server
+		    //while(1)
+		    //{
+			
+			 
+			//Send some data
+			printf("before send");
+			if( send(sock , client_message , strlen(client_message) , 0) < 0)
+			{
+			    puts("Send failed");
+			    return 1;
+			}
+			printf("return from send");
+			 
+			//Receive a reply from the server
+			if( recv(sock , server_reply , 2000 , 0) < 0)
+			{
+			    puts("recv failed");
+			    break;
+			}
+			 
+			
+		    
+		     
+		        puts("Server ----- reply :");
+        		puts(server_reply);
+
+
+
+
+
+
+
+
+
+			//Send the message back to client
+			write(client_sock , server_reply , strlen(server_reply));
+			printf("Reached here\n");
+			//close(sock);*/
+			write(client_sock , client_message , strlen(client_message));
+		   //}
+		   //close(sock);
+			bzero(client_message,2000*sizeof(client_message[0]));
+			
 	    }
 	     
 	    if(read_size == 0)
