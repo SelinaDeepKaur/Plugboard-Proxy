@@ -7,13 +7,36 @@
 #include<sys/socket.h>
 #include<arpa/inet.h> //inet_addr
 #include<unistd.h>    //write
+#include <openssl/aes.h>
+
+struct ctr_state {
+    unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
+    unsigned int num;
+    unsigned char ecount[16];
+    };
+int init_ctr_server(struct ctr_state *state, const unsigned char iv[8])
+	{
+	    /* aes_ctr128_encrypt requires 'num' and 'ecount' set to zero on the
+	     * first call. */
+	    state->num = 0;
+	    memset(state->ecount, 0, 16);
+
+	    /* Initialise counter in 'ivec' to 0 */
+	    memset(state->ivec + 8, 0, 8);
+
+	    /* Copy IV into 'ivec' */
+	    memcpy(state->ivec, iv, 8);
+	}
  
-int server(char *dAddress, char *dPort, char *serverPort)
+int server(char *dAddress, char *dPort, char *serverPort, char *key)
 {
+    int ivClientFlag=0;
+    unsigned char ivClient[8];
     //printf("---------------------daddress --------------,%s",daddress);
     int socket_desc , client_sock , c , read_size;
     struct sockaddr_in server , client;
     char client_message[2000];
+    char client_msg_back[2000];	
      
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
@@ -44,6 +67,8 @@ int server(char *dAddress, char *dPort, char *serverPort)
      
     while(1)
     {
+	    AES_KEY aes_key;
+	    struct ctr_state state;
 	    //Accept and incoming connection
 	    puts("Waiting for incoming connections...");
 	    c = sizeof(struct sockaddr_in);
@@ -56,11 +81,35 @@ int server(char *dAddress, char *dPort, char *serverPort)
 		return 1;
 	    }
 	    puts("Connection accepted");
-	     
+		
 	    //Receive a message from client
+		//memset(client_message,0,sizeof(client_message));
+	    //memset(client_msg_back,0,sizeof(client_msg_back));
+	    bzero(client_message,2000*sizeof(client_message[0]));
+	    bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
 	    while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 )
 	    {
+
+		    puts("Hi, this is server");
 		
+		    if(ivClientFlag==0)
+		    {
+			ivClientFlag=1;
+			puts("iv  from client");
+			puts(client_message);
+			strcpy(ivClient,client_message);
+			init_ctr_server(&state, ivClient);	
+
+			if (!AES_set_encrypt_key(key, 128, &aes_key))
+            		/* Handle the error */;
+		    }
+		    else
+		    {
+			puts("message from client");
+			puts(client_message);
+			AES_ctr128_encrypt(client_message, client_msg_back, strlen(client_message), &aes_key, state.ivec, state.ecount, &state.num);
+			puts("decrypted message ");
+			puts(client_msg_back);
 		    /*printf("message from client, %s",client_message);
 		    int sock;
 		    struct sockaddr_in server;
@@ -96,6 +145,7 @@ int server(char *dAddress, char *dPort, char *serverPort)
 			 
 			//Send some data
 			printf("before send");
+
 			if( send(sock , client_message , strlen(client_message) , 0) < 0)
 			{
 			    puts("Send failed");
@@ -128,10 +178,16 @@ int server(char *dAddress, char *dPort, char *serverPort)
 			write(client_sock , server_reply , strlen(server_reply));
 			printf("Reached here\n");
 			//close(sock);*/
-			write(client_sock , client_message , strlen(client_message));
+			write(client_sock , client_msg_back , strlen(client_message));
 		   //}
 		   //close(sock);
-			bzero(client_message,2000*sizeof(client_message[0]));
+			
+		    }
+	    //memset(client_message,0,sizeof(client_message));
+	    //memset(client_msg_back,0,sizeof(client_msg_back));
+	    bzero(client_message,2000*sizeof(client_message[0]));
+	    bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
+
 			
 	    }
 	     

@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 	    }
 	    else
 	    {
-		client(ip,dPort);
+		client(ip,dPort,keyfile);
 	    }
 	
 	    

@@ -69,33 +69,45 @@ int client(char *dAddress, char *dPort, char *key)
     }
      
     puts("Connected\n");
-     
+    puts("iv ");
+    puts(iv);
+	
+    if( send(sock , iv , strlen(iv) , 0) < 0)
+        {
+            puts("Sending iv failed");
+            return 1;
+        }
     //keep communicating with server
     while(1)
     {
+	
+	memset(message, 0 , sizeof(message));
+	memset(msg_out, 0 , sizeof(msg_out));
+	bzero(message,2000*sizeof(message[0]));
+	bzero(msg_out,2000*sizeof(msg_out[0]));
         printf("Enter message : ");
-	//getline(stdin,message);
-        scanf("%s" , message);
+	scanf("%s", message);
+	puts(message);
+	
 	AES_ctr128_encrypt(message, msg_out, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
-	//message[strlen(message)]='\n';
-        printf("msg_out,%s",msg_out);
-        //Send some data
+	puts(msg_out);
         if( send(sock , msg_out , strlen(msg_out) , 0) < 0)
         {
             puts("Send failed");
             return 1;
         }
-         
+        puts("Waiting");
         //Receive a reply from the server
+	bzero(server_reply,2000*sizeof(server_reply[0]));
         if( recv(sock , server_reply , 2000 , 0) < 0)
         {
             puts("recv failed");
             break;
         }
          
-        puts("Server reply :");
+        puts("\nServer reply :");
         puts(server_reply);
-	bzero(server_reply,2000*sizeof(server_reply[0]));
+	
     }
      
     close(sock);
