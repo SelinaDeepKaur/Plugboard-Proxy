@@ -7,6 +7,11 @@
 #include<sys/socket.h>    //socket
 #include<arpa/inet.h> //inet_addr
 #include <openssl/aes.h>
+#include <sys/types.h> 
+#include <netinet/in.h>
+#include <netdb.h>
+#include <unistd.h>
+
  
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
@@ -35,21 +40,16 @@ int client(char *dAddress, char *dPort, char *key)
 	unsigned char iv[8];
 	struct ctr_state state;
 
-	if (!RAND_bytes(iv, 8))
-	    /* Handle the error */;
 	
-	puts("size of iv");
-	puts(sizeof(iv));
+	
 
-	init_ctr(&state, iv);	
-    	AES_KEY aes_key;
+	
 
-	if (!AES_set_encrypt_key(key, 128, &aes_key))
-            /* Handle the error */;
+	
 
     int sock;
     struct sockaddr_in server;
-    char message[1000] , server_reply[2000], msg_out[1000];
+    char message[1000] , server_reply[2000], msg_out[1000], messageIv[1000];
      
     //Create socket
     sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -72,29 +72,56 @@ int client(char *dAddress, char *dPort, char *key)
     }
      
     puts("Connected\n");
-    puts("iv ");
-    puts(iv);
+    //puts("iv ");
+    //puts(iv);
 	
-    if( send(sock , iv , strlen(iv) , 0) < 0)
+    /*if( send(sock , iv , strlen(iv) , 0) < 0)
         {
             puts("Sending iv failed");
             return 1;
         }
+    */
     //keep communicating with server
     while(1)
     {
+	if (!RAND_bytes(iv, 8))
+	    /* Handle the error */;
+	init_ctr(&state, iv);	
+    	AES_KEY aes_key;
 	
+	if (!AES_set_encrypt_key(key, 128, &aes_key))
+            /* Handle the error */;
+
+	/*if( send(sock , iv , strlen(iv) , 0) < 0)
+        {
+            puts("Sending iv failed");
+            return 1;
+        }*/
+	puts("iv =");
+	puts(iv);
+    
 	memset(message, 0 , sizeof(message));
 	memset(msg_out, 0 , sizeof(msg_out));
 	bzero(message,2000*sizeof(message[0]));
 	bzero(msg_out,2000*sizeof(msg_out[0]));
-        printf("Enter message : ");
-	scanf("%s", message);
-	puts(message);
+        fprintf(stderr, "Enter message : ");
+	//puts("Enter message : ");
+	//scanf("%s", message);
+	read(STDIN_FILENO,message, 4096);
 	
+	puts("key");
+	puts(key);
 	AES_ctr128_encrypt(message, msg_out, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
+	puts("encrypted message");
 	puts(msg_out);
-        if( send(sock , msg_out , strlen(msg_out) , 0) < 0)
+	strcpy(messageIv,iv);
+	strcat(messageIv,msg_out);
+	puts("printing message+Iv");
+	puts(messageIv);
+	
+	
+	
+        if( send(sock , messageIv , strlen(messageIv) , 0) < 0)
         {
             puts("Send failed");
             return 1;
@@ -108,8 +135,9 @@ int client(char *dAddress, char *dPort, char *key)
             break;
         }
          
-        puts("\nServer reply :");
-        puts(server_reply);
+        fprintf(stderr,"\nServer reply :%s",server_reply);
+        //puts(server_reply);write(STDOUT_FILENO, buffer, strlen(buffer));
+	write(STDOUT_FILENO, server_reply, strlen(server_reply));
 	
     }
      

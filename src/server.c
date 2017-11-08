@@ -36,9 +36,9 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
     //printf("---------------------daddress --------------,%s",daddress);
     int socket_desc , client_sock , c , read_size;
     struct sockaddr_in server , client;
-    char client_message[2000];
+    char client_message[2000], message[2000];
     char client_msg_back[2000];	
-     
+
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_desc == -1)
@@ -93,28 +93,38 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 
 		    puts("Hi, this is server");
 		
-		    if(ivClientFlag==0)
-		    {
-			ivClientFlag=1;
-			puts("iv  from client");
-			puts(client_message);
-			strcpy(ivClient,client_message);
-			init_ctr_server(&state, ivClient);	
-
-			if (!AES_set_encrypt_key(key, 128, &aes_key))
-            		/* Handle the error */;
-		    }
-		    else
-		    {
-			puts("message from client");
-			puts(client_message);
-			AES_ctr128_encrypt(client_message, client_msg_back, strlen(client_message), &aes_key, state.ivec, state.ecount, &state.num);
-			puts("decrypted message ");
-			puts(client_msg_back);
-
-
-		    puts("message from client");
+		    
+		    //ivClientFlag=1;
+		    puts("messageiv  from client");
 		    puts(client_message);
+		    strncpy(ivClient,client_message,8);
+		    puts("ivclient");
+		    puts(ivClient);
+		    strcpy(message,client_message+8);
+		    puts("encrypted message without iv");
+		    puts(message);
+		    init_ctr_server(&state, ivClient);
+		    if (!AES_set_encrypt_key(key, 128, &aes_key))
+    			/* Handle the error */;
+		    puts("key");
+		    puts(key);
+		    AES_ctr128_encrypt(message, client_msg_back, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
+		    puts("decrypted message ");
+		    puts(client_msg_back);
+		    
+		    	
+
+		
+		    
+		    
+		    
+			//puts("message from client");
+			//puts(client_message);
+			
+
+
+		    //puts("message from client");
+		    //puts(client_message);
 		    int sock;
 		    struct sockaddr_in server;
 		    char message[1000] , server_reply[2000];
@@ -170,33 +180,34 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 		        puts("Server ----- reply :");
         		puts(server_reply);
 
-
-
-
-
-
-
-
-
-			//Send the message back to client
-			//write(client_sock , server_reply , strlen(server_reply));
-			//printf("Reached here\n");
-			//close(sock);
 			
 
 
-			//write(client_sock , client_msg_back , strlen(client_message));
+
+
+
+
+			puts("before sending back to client\n");
+			//Send the message back to client
+			write(client_sock , server_reply , strlen(server_reply));
+			
+			
+			
+
+
+			//write(client_sock , client_msg_back , strlen(client_msg_back));
+			puts("after sending back to client\n");
 
 
 
 		   //}
 		   //close(sock);
 			
-		    }
+		    
 	    //memset(client_message,0,sizeof(client_message));
 	    //memset(client_msg_back,0,sizeof(client_msg_back));
-	    bzero(client_message,2000*sizeof(client_message[0]));
-	    bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
+	    //bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
+	    //bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
 
 			
 	    }

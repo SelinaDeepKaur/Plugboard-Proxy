@@ -5,6 +5,6 @@ CLIENT= src/client.c
 OUTPUT= bin/pbproxy
 
 all:
-	$(CC) $(SERVER) $(CLIENT) $(SOURCE) -o $(OUTPUT) 
+	$(CC) $(SERVER) $(CLIENT) $(SOURCE) -o $(OUTPUT) -l crypto 
 clean:
 	rm -vf $(OUTPUT)

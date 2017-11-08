@@ -10,6 +10,7 @@
 #include<arpa/inet.h>
 #include "../includes/server.h"
 #include "../includes/client.h"
+
 int hostname_to_ip(char *hostname , char*ip)
 {
     struct hostent *he;
@@ -70,16 +71,38 @@ int main(int argc, char **argv)
 	    printf("-d_address %s",daddress);
             printf("-dport %s",dport);*/
 	    hostname_to_ip(dAddress , ip);
+	    FILE *p;
+   	    p = fopen(keyfile, "r");
+	    char key[1000]={0};
+	    if(p)
+	    {
+		
+		
+		fgets(key, 1000,(FILE*)p);
+		puts("key");
+		puts(key);
+    		
+	    }
+	    else
+	    {
+	    	puts("file not opening");
+	    }
+	    
+
+	   
+	    
+	    //key = "selinaKaur";
+
 	    if(serverPort !=NULL)
 	    {
 		
 		//dAddress = "127.0.0.1";
 
-		server(ip,dPort,serverPort,keyfile);
+		server(ip,dPort,serverPort,key);
 	    }
 	    else
 	    {
-		client(ip,dPort,keyfile);
+		client(ip,dPort,key);
 	    }
 	
 	    
