@@ -37,6 +37,9 @@ int client(char *dAddress, char *dPort, char *key)
 
 	if (!RAND_bytes(iv, 8))
 	    /* Handle the error */;
+	
+	puts("size of iv");
+	puts(sizeof(iv));
 
 	init_ctr(&state, iv);	
     	AES_KEY aes_key;

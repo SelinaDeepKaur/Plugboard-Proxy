@@ -1,3 +1,4 @@
+//references http://www.binarytides.com/server-client-example-c-sockets-linux/
 /*
     C socket server example
 */
@@ -110,7 +111,10 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 			AES_ctr128_encrypt(client_message, client_msg_back, strlen(client_message), &aes_key, state.ivec, state.ecount, &state.num);
 			puts("decrypted message ");
 			puts(client_msg_back);
-		    /*printf("message from client, %s",client_message);
+
+
+		    puts("message from client");
+		    puts(client_message);
 		    int sock;
 		    struct sockaddr_in server;
 		    char message[1000] , server_reply[2000];
@@ -144,14 +148,14 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 			
 			 
 			//Send some data
-			printf("before send");
+			puts("before send");
 
-			if( send(sock , client_message , strlen(client_message) , 0) < 0)
+			if( send(sock , client_msg_back , strlen(client_msg_back) , 0) < 0)
 			{
 			    puts("Send failed");
 			    return 1;
 			}
-			printf("return from send");
+			puts("return from send");
 			 
 			//Receive a reply from the server
 			if( recv(sock , server_reply , 2000 , 0) < 0)
@@ -175,10 +179,16 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 
 
 			//Send the message back to client
-			write(client_sock , server_reply , strlen(server_reply));
-			printf("Reached here\n");
-			//close(sock);*/
-			write(client_sock , client_msg_back , strlen(client_message));
+			//write(client_sock , server_reply , strlen(server_reply));
+			//printf("Reached here\n");
+			//close(sock);
+			
+
+
+			//write(client_sock , client_msg_back , strlen(client_message));
+
+
+
 		   //}
 		   //close(sock);
 			
