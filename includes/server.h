@@ -1,4 +1,4 @@
 #ifdef server
 #define server
-int server(argc, char *argv[]);
+int server(char, char, char, char);
 #endif

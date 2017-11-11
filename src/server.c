@@ -5,11 +5,15 @@
  
 #include<stdio.h>
 #include<string.h>    //strlen
+#include <stdlib.h>
 #include<sys/socket.h>
 #include<arpa/inet.h> //inet_addr
 #include<unistd.h>    //write
 #include <openssl/aes.h>
 #include <fcntl.h>
+#include <openssl/rand.h>
+#include <openssl/hmac.h>
+#include <openssl/buffer.h>
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
     unsigned int num;
@@ -31,11 +35,11 @@ int init_ctr_server(struct ctr_state *state, const unsigned char iv[8])
  
 int server(char *dAddress, char *dPort, char *serverPort, char *key)
 {
-    unsigned char ivS[8];
+    //unsigned char ivS[8];
     int ivClientFlag=0;
     int ivServerFlag=0;
-    //unsigned char ivClient[8];
-    char *ivClient = "abc";
+    unsigned char ivClient[8];
+    //char *ivClient = "abc";
     char message_client[4096];
     int ssh_sock;
     char message[4096] , server_reply[4096];
@@ -102,7 +106,7 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 	    ssh_sock = socket(AF_INET , SOCK_STREAM , 0);
 	    if (ssh_sock == -1)
 	    {
-		printf("Could not create socket");
+		fprintf(stderr,"Could not create socket");
 	    }
 	    fprintf(stderr,"Socket created");
 	     
@@ -119,43 +123,55 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 		return 1;
 	    }
 	    
+		    //if(ivClientFlag==0)
+		    //	    {
+				
+				read(client_sock , ivClient , 4096);
+		    		   
+				//ivClientFlag=1;
+				
+				//read(client_sock , ivClient , 4096);
+				//fprintf(stderr,client_message);
+				//fprintf(stderr,"\nServer reveived iv  from client %s\n",client_message);
+				//strcpy(ivClient,client_message);
+				fprintf(stderr,"\nServer reveived iv  from client %s  \n",ivClient);
+				//fprintf(stderr,"\nServer side: inside if clause for iv\n");
+				//memset(&client_message[0],0,4096);
+
+				/*init_ctr_server(&state, ivClient);
+				if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+					fprintf(stderr,"\nproblem with AES set encrypt, server side\n");*/
+				
+				//continue;
+		//	    }
 	     
 	    fprintf(stderr,"Connected\n");
 	    fcntl(client_sock, F_SETFL, O_NONBLOCK);
 	    fcntl(ssh_sock, F_SETFL, O_NONBLOCK);
-	    init_ctr_server(&state, ivClient);
-	if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+	    
+	init_ctr_server(&state, ivClient);
+		if((AES_set_encrypt_key(key, 128, &aes_key))<0)
 		fprintf(stderr,"\nproblem with AES set encrypt, server side\n");
 	    
 	    
 	    while(1) {
+
+
 		    while( (n=read(client_sock , client_message , 4096)) > 0 )
 		    {   
 
 			    fprintf(stderr,"Hi, this is server");
-			    if(0)
-			    //if(ivClientFlag==0)
-			    {
-				ivClientFlag=1;
-				/*fprintf(stderr,"\nServer reveived iv  from client");
-				fprintf(stderr,client_message);
-				strcpy(ivClient,client_message);
-				fprintf(stderr,"\nServer side: inside if clause for iv\n");
-				memset(&client_message[0],0,4096);*/
-				
-				
-			    }
-		
-			    else
-			    {
+
 			        fprintf(stderr,"\nServer side: inside else clause of iv\n");
 				//puts("key");
 				//puts(key);
 					
 				fprintf(stderr,"key = %s\n",key);
 				fprintf(stderr,"encrypted message from client = %s\n",client_message);
+				/*init_ctr_server(&state, ivClient);
+				if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+					fprintf(stderr,"\nproblem with AES set encrypt, server side\n");*/
 				
-
 				AES_ctr128_encrypt(client_message, client_msg_back, n, &aes_key, state.ivec, state.ecount, &state.num);
 				fprintf(stderr,"decrypted message from client = %s\n",client_msg_back);
 				//fprintf(stderr,"message from client ");
@@ -176,7 +192,7 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 				//puts("return from send");
 				memset(&client_message[0],0,sizeof(client_message));
 			     	memset(&client_msg_back[0],0,sizeof(client_msg_back));
-			     }
+			     
 			     
 			}	 
 				//Receive a reply from the server
@@ -185,6 +201,9 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 				  
 				fprintf(stderr,"Ssh----- reply %s :",server_reply);
 				//puts("before sending back to client\n");
+				/*init_ctr_server(&state, ivClient);
+				if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+					fprintf(stderr,"\nproblem with AES set encrypt, server side\n");*/
 				AES_ctr128_encrypt(server_reply, message_client, n, &aes_key, state.ivec, state.ecount, &state.num);
 				write(client_sock , message_client, n);
 				memset(&server_reply[0],0,4096);
@@ -193,7 +212,9 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 
 			}
 		
+		//ivClientFlag=0;
 	    	}
+		
 		
     }
      

@@ -4,6 +4,7 @@
 */
 #include<stdio.h> //printf
 #include<string.h>    //strlen
+#include <stdlib.h>
 #include<sys/socket.h>    //socket
 #include<arpa/inet.h> //inet_addr
 #include <openssl/aes.h>
@@ -12,7 +13,9 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
- 
+#include <openssl/rand.h>
+#include <openssl/hmac.h>
+#include <openssl/buffer.h>
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
     unsigned int num;
@@ -37,9 +40,9 @@ int client(char *dAddress, char *dPort, char *key)
     
 	int n;
 	int ivServerFlag=0;
-	//unsigned char iv[8];
-	char *iv="abc";
-	unsigned char ivServer[8];
+	unsigned char iv[8];
+	//char *iv="abc";
+	//unsigned char ivServer[8];
 	struct ctr_state state;
 
 	int sock;
@@ -66,12 +69,11 @@ int client(char *dAddress, char *dPort, char *key)
 		return 1;
 	}
 
-	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
-	fcntl(sock, F_SETFL, O_NONBLOCK);
+	
 
 	fprintf(stderr,"Connected\n");
 
-	//RAND_bytes(iv, 8)
+	RAND_bytes(iv, 8);
 	/* Handle the error */;
 	AES_KEY aes_key;
 
@@ -79,18 +81,23 @@ int client(char *dAddress, char *dPort, char *key)
 	
 	AES_set_encrypt_key(key, 128, &aes_key);*/
            
-	/*if( send(sock , iv , 8 , 0) < 0)
+	
+	//puts(iv);
+	
+
+	if( write(sock , iv , strlen(iv)) < 0)
 	{
 	    //puts("Sending iv failed");
 	    return 1;
 	}
-	fprintf(stderr,"\n Client side iv =%s\n",iv);*/
-	//puts(iv);
-	
-	init_ctr_server(&state, iv);	
+	init_ctr(&state, iv);	
 		//fprintf(stderr,"key = %s\n",key);
 	if((AES_set_encrypt_key(key, 128, &aes_key))<0)
 		fprintf(stderr,"\nproblem with AES set encrypt, server side\n");
+
+	fprintf(stderr,"\n Client side iv = %s  \n",iv);
+	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+	fcntl(sock, F_SETFL, O_NONBLOCK);
 
 	while(1)
 	{    
@@ -102,12 +109,16 @@ int client(char *dAddress, char *dPort, char *key)
 			fprintf(stderr,"key = %s\n",key);
 			
 			fprintf(stderr,"client side: sending message %s\n",message);
+			/*init_ctr_server(&state, iv);	
+			//fprintf(stderr,"key = %s\n",key);
+			if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+				fprintf(stderr,"\nproblem with AES set encrypt, server side\n");*/
 			AES_ctr128_encrypt(message, msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);
 
 			fprintf(stderr,"encrypted message %s\n",msg_out);
 
 	
-
+			
 			if( write(sock , msg_out , n) < 0)
 			{
 			    fprintf(stderr,"Send failed");
@@ -123,8 +134,11 @@ int client(char *dAddress, char *dPort, char *key)
 		{
 
 				fprintf(stderr,"\nServer reply : %s\n",server_reply);
+				/*init_ctr_server(&state, iv);	
+			//fprintf(stderr,"key = %s\n",key);
+				if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+					fprintf(stderr,"\nproblem with AES set encrypt, server side\n");*/
 				AES_ctr128_encrypt(server_reply, final_message, n, &aes_key, state.ivec, state.ecount, &state.num);
-				//puts("-------Server Reply --------");
 				write(STDOUT_FILENO, final_message, n);
 				memset(&server_reply[0],0,4096);
 				memset(&final_message[0],0,4096);
