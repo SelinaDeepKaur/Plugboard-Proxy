@@ -11,7 +11,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
-
+#include <fcntl.h>
  
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
@@ -35,111 +35,97 @@ int init_ctr(struct ctr_state *state, const unsigned char iv[8])
 int client(char *dAddress, char *dPort, char *key)
 {
     
-
-	
+	int n;
+	int ivServerFlag=0;
 	unsigned char iv[8];
+	unsigned char ivServer[8];
 	struct ctr_state state;
 
-	
-	
+	int sock;
+	struct sockaddr_in server;
+	char message[4096] , server_reply[4096], msg_out[4096], messageIv[4096];
 
-	
+	//Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1)
+	{
+	fprintf(stderr,"Could not create socket");
+	}
+	fprintf(stderr,"Socket created");
 
-	
+	server.sin_addr.s_addr = inet_addr(dAddress);
+	//server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server.sin_family = AF_INET;
+	server.sin_port = htons( atoi(dPort) );
 
-    int sock;
-    struct sockaddr_in server;
-    char message[1000] , server_reply[2000], msg_out[1000], messageIv[1000];
-     
-    //Create socket
-    sock = socket(AF_INET , SOCK_STREAM , 0);
-    if (sock == -1)
-    {
-        printf("Could not create socket");
-    }
-    puts("Socket created");
-     
-    server.sin_addr.s_addr = inet_addr(dAddress);
-    //server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_family = AF_INET;
-    server.sin_port = htons( atoi(dPort) );
- 
-    //Connect to remote server
-    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
-    {
-        perror("connect failed. Error");
-        return 1;
-    }
-     
-    puts("Connected\n");
-    //puts("iv ");
-    //puts(iv);
-	
-    /*if( send(sock , iv , strlen(iv) , 0) < 0)
-        {
-            puts("Sending iv failed");
-            return 1;
-        }
-    */
-    //keep communicating with server
-    while(1)
-    {
-	if (!RAND_bytes(iv, 8))
-	    /* Handle the error */;
+	//Connect to remote server
+	if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+	{
+		perror("connect failed. Error");
+		return 1;
+	}
+
+	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+	fcntl(sock, F_SETFL, O_NONBLOCK);
+
+	fprintf(stderr,"Connected\n");
+
+	RAND_bytes(iv, 8)
+	/* Handle the error */;
 	init_ctr(&state, iv);	
-    	AES_KEY aes_key;
-	
-	if (!AES_set_encrypt_key(key, 128, &aes_key))
-            /* Handle the error */;
+	AES_KEY aes_key;
 
-	/*if( send(sock , iv , strlen(iv) , 0) < 0)
-        {
-            puts("Sending iv failed");
-            return 1;
-        }*/
-	puts("iv =");
-	puts(iv);
+	AES_set_encrypt_key(key, 128, &aes_key);
+           
     
-	memset(message, 0 , sizeof(message));
-	memset(msg_out, 0 , sizeof(msg_out));
-	bzero(message,2000*sizeof(message[0]));
-	bzero(msg_out,2000*sizeof(msg_out[0]));
-        fprintf(stderr, "Enter message : ");
-	//puts("Enter message : ");
-	//scanf("%s", message);
-	read(STDIN_FILENO,message, 4096);
+    
 	
-	puts("key");
-	puts(key);
-	AES_ctr128_encrypt(message, msg_out, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
-	puts("encrypted message");
-	puts(msg_out);
-	strcpy(messageIv,iv);
-	strcat(messageIv,msg_out);
-	puts("printing message+Iv");
-	puts(messageIv);
+
+	if( send(sock , iv , strlen(iv) , 0) < 0)
+	{
+	    puts("Sending iv failed");
+	    return 1;
+	}
+	fprintf(stderr,"iv =%s",iv);
+	//puts(iv);
+
+	while(1)
+	{    
+
+
+		while((n=read(STDIN_FILENO,message, 4096))>0)
+		{
+			fprintf(stderr,"sending message = %s\n",message);
+
+			AES_ctr128_encrypt(message, msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);
+
+			fprintf(stderr,"encrypted message %s\n",msg_out);
 	
+
+
+			if( send(sock , msg_out , n , 0) < 0)
+			{
+			    fprintf(stderr,"Send failed");
+			    return 1;
+			}
+			memset(&message[0], 0 , sizeof(message));
+			memset(&msg_out[0], 0 , sizeof(msg_out));
 	
-	
-        if( send(sock , messageIv , strlen(messageIv) , 0) < 0)
-        {
-            puts("Send failed");
-            return 1;
-        }
-        puts("Waiting");
-        //Receive a reply from the server
-	bzero(server_reply,2000*sizeof(server_reply[0]));
-        if( recv(sock , server_reply , 2000 , 0) < 0)
-        {
-            puts("recv failed");
-            break;
-        }
-         
-        fprintf(stderr,"\nServer reply :%s",server_reply);
-        //puts(server_reply);write(STDOUT_FILENO, buffer, strlen(buffer));
-	write(STDOUT_FILENO, server_reply, strlen(server_reply));
-	
-    }
+		}
+
+		//fprintf(stderr,"Waiting");
+		while( (n=recv(sock , server_reply , 4096 , 0)) > 0)
+		{
+
+				fprintf(stderr,"\nServer reply : %s\n",server_reply);
+		
+				puts("-------Server Reply --------");
+				write(STDOUT_FILENO, server_reply, n);
+				memset(&server_reply[0],0,sizeof(server_reply));
+		}
+
+
+	}
      
     close(sock);
     return 0;

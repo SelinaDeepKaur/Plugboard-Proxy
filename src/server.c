@@ -9,7 +9,7 @@
 #include<arpa/inet.h> //inet_addr
 #include<unistd.h>    //write
 #include <openssl/aes.h>
-
+#include <fcntl.h>
 struct ctr_state {
     unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
     unsigned int num;
@@ -31,13 +31,19 @@ int init_ctr_server(struct ctr_state *state, const unsigned char iv[8])
  
 int server(char *dAddress, char *dPort, char *serverPort, char *key)
 {
+    unsigned char ivS[8];
     int ivClientFlag=0;
+    int ivServerFlag=0;
     unsigned char ivClient[8];
+    char message_client[4096];
+    int ssh_sock;
+    char message[4096] , server_reply[4096];
+    int n;
     //printf("---------------------daddress --------------,%s",daddress);
     int socket_desc , client_sock , c , read_size;
     struct sockaddr_in server , client;
-    char client_message[2000], message[2000];
-    char client_msg_back[2000];	
+    char client_message[4096];
+    char client_msg_back[4096];	
 
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
@@ -65,16 +71,18 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
      
     //Listen
     listen(socket_desc , 3);
+
+    c = sizeof(struct sockaddr_in);
      
     while(1)
     {
 	    AES_KEY aes_key;
 	    struct ctr_state state;
-	    //Accept and incoming connection
-	    puts("Waiting for incoming connections...");
-	    c = sizeof(struct sockaddr_in);
+	    
+	    fprintf(stderr,"Waiting for incoming connections...");
+	    
 	     
-	    //accept connection from an incoming client
+	    
 	    client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c);
 	    if (client_sock < 0)
 	    {
@@ -82,145 +90,97 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 		return 1;
 	    }
 	    puts("Connection accepted");
+	    
 		
-	    //Receive a message from client
-		//memset(client_message,0,sizeof(client_message));
-	    //memset(client_msg_back,0,sizeof(client_msg_back));
-	    bzero(client_message,2000*sizeof(client_message[0]));
-	    bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
-	    while( (read_size = recv(client_sock , client_message , 2000 , 0)) > 0 )
+	    
+	    memset(&client_message[0],0,sizeof(client_message));
+	    memset(&client_msg_back[0],0,sizeof(client_msg_back));
+	    
+	    
+		
+	    ssh_sock = socket(AF_INET , SOCK_STREAM , 0);
+	    if (ssh_sock == -1)
 	    {
-
-		    puts("Hi, this is server");
-		
-		    
-		    //ivClientFlag=1;
-		    puts("messageiv  from client");
-		    puts(client_message);
-		    strncpy(ivClient,client_message,8);
-		    puts("ivclient");
-		    puts(ivClient);
-		    strcpy(message,client_message+8);
-		    puts("encrypted message without iv");
-		    puts(message);
-		    init_ctr_server(&state, ivClient);
-		    if (!AES_set_encrypt_key(key, 128, &aes_key))
-    			/* Handle the error */;
-		    puts("key");
-		    puts(key);
-		    AES_ctr128_encrypt(message, client_msg_back, strlen(message), &aes_key, state.ivec, state.ecount, &state.num);
-		    puts("decrypted message ");
-		    puts(client_msg_back);
-		    
-		    	
-
-		
-		    
-		    
-		    
-			//puts("message from client");
-			//puts(client_message);
-			
-
-
-		    //puts("message from client");
-		    //puts(client_message);
-		    int sock;
-		    struct sockaddr_in server;
-		    char message[1000] , server_reply[2000];
-		     
-		    //Create socket
-		    sock = socket(AF_INET , SOCK_STREAM , 0);
-		    if (sock == -1)
-		    {
-			printf("Could not create socket");
-		    }
-		    puts("Socket created");
-		     
-		    
-		    server.sin_addr.s_addr = inet_addr(dAddress);
-                    //server.sin_addr.s_addr = inet_addr("127.0.0.1");
-		    server.sin_family = AF_INET;
-		    server.sin_port = htons( atoi(dPort) );
-		 
-		    //Connect to remote server
-		    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
-		    {
-			perror("connect failed. Error");
-			return 1;
-		    }
-		     
-		    puts("Connected\n");
-		     
-		    //keep communicating with server
-		    //while(1)
-		    //{
-			
-			 
-			//Send some data
-			puts("before send");
-
-			if( send(sock , client_msg_back , strlen(client_msg_back) , 0) < 0)
-			{
-			    puts("Send failed");
-			    return 1;
-			}
-			puts("return from send");
-			 
-			//Receive a reply from the server
-			if( recv(sock , server_reply , 2000 , 0) < 0)
-			{
-			    puts("recv failed");
-			    break;
-			}
-			 
-			
-		    
-		     
-		        puts("Server ----- reply :");
-        		puts(server_reply);
-
-			
-
-
-
-
-
-
-			puts("before sending back to client\n");
-			//Send the message back to client
-			write(client_sock , server_reply , strlen(server_reply));
-			
-			
-			
-
-
-			//write(client_sock , client_msg_back , strlen(client_msg_back));
-			puts("after sending back to client\n");
-
-
-
-		   //}
-		   //close(sock);
-			
-		    
-	    //memset(client_message,0,sizeof(client_message));
-	    //memset(client_msg_back,0,sizeof(client_msg_back));
-	    //bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
-	    //bzero(client_msg_back,2000*sizeof(client_msg_back[0]));
-
-			
+		printf("Could not create socket");
 	    }
+	    puts("Socket created");
 	     
-	    if(read_size == 0)
+	    
+	    server.sin_addr.s_addr = inet_addr(dAddress);
+            //server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	    server.sin_family = AF_INET;
+	    server.sin_port = htons( atoi(dPort) );
+	 
+	    //Connect to remote server
+	    if (connect(ssh_sock , (struct sockaddr *)&server , sizeof(server)) < 0)
 	    {
-		puts("Client disconnected");
-		fflush(stdout);
+		perror("connect failed. Error");
+		return 1;
 	    }
-	    else if(read_size == -1)
-	    {
-		perror("recv failed");
-	    }
+	    
+	     
+	    puts("Connected\n");
+	    fcntl(client_sock, F_SETFL, O_NONBLOCK);
+	    fcntl(ssh_sock, F_SETFL, O_NONBLOCK);
+	    
+	    while(1) {
+		    while( (n=recv(client_sock , client_message , 4096 , 0)) > 0 )
+		    {   
+
+			    puts("Hi, this is server");
+			    //if(0)
+			    if(ivClientFlag==0)
+			    {
+				ivClientFlag=1;
+				//puts("iv  from client");
+				//puts(client_message);
+				strcpy(ivClient,client_message);
+				bzero(client_message,4096*sizeof(client_message[0]));
+				init_ctr_server(&state, ivClient);	
+
+				if (!AES_set_encrypt_key(key, 128, &aes_key))
+		    		/* Handle the error */;
+			    }
+		
+			    else
+			    {
+			    
+				puts("key");
+				puts(key);
+
+				AES_ctr128_encrypt(client_message, client_msg_back, n, &aes_key, state.ivec, state.ecount, &state.num);
+
+				fprintf(stderr,"message from client ");
+				fprintf(stderr,client_msg_back);
+				//socket
+
+
+
+				 
+				//Send some data
+				puts("before send");
+
+				if( send(ssh_sock , client_msg_back , n , 0) < 0)
+				{
+				    puts("Send failed");
+				    return 1;
+				}
+				puts("return from send");
+			     }
+			}	 
+				//Receive a reply from the server
+			while((n=recv(ssh_sock , server_reply , 4096, 0)) > 0)
+			{
+				  
+				fprintf(stderr,"Ssh----- reply %s :",server_reply);
+				//puts("before sending back to client\n");
+				write(client_sock , server_reply , n);
+				//puts("after sending back to client\n");
+
+			}
+		
+	    	}
+		
     }
      
     return 0;
