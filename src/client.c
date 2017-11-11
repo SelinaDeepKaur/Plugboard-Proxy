@@ -77,15 +77,11 @@ int client(char *dAddress, char *dPort, char *key)
 
 	AES_set_encrypt_key(key, 128, &aes_key);
            
-    
-    
-	
-
-	if( send(sock , iv , strlen(iv) , 0) < 0)
+	/*if( send(sock , iv , strlen(iv) , 0) < 0)
 	{
 	    puts("Sending iv failed");
 	    return 1;
-	}
+	}*/
 	fprintf(stderr,"iv =%s",iv);
 	//puts(iv);
 
@@ -97,19 +93,19 @@ int client(char *dAddress, char *dPort, char *key)
 		{
 			fprintf(stderr,"sending message = %s\n",message);
 
-			AES_ctr128_encrypt(message, msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);
+			//AES_ctr128_encrypt(message, msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);
 
-			fprintf(stderr,"encrypted message %s\n",msg_out);
+			//fprintf(stderr,"encrypted message %s\n",msg_out);
 	
 
 
-			if( send(sock , msg_out , n , 0) < 0)
+			if( send(sock , message , n , 0) < 0)
 			{
 			    fprintf(stderr,"Send failed");
 			    return 1;
 			}
-			memset(&message[0], 0 , sizeof(message));
-			memset(&msg_out[0], 0 , sizeof(msg_out));
+			memset(&message[0], 0 , 4096);
+			//memset(&msg_out[0], 0 , sizeof(msg_out));
 	
 		}
 
@@ -118,10 +114,9 @@ int client(char *dAddress, char *dPort, char *key)
 		{
 
 				fprintf(stderr,"\nServer reply : %s\n",server_reply);
-		
-				puts("-------Server Reply --------");
+				//puts("-------Server Reply --------");
 				write(STDOUT_FILENO, server_reply, n);
-				memset(&server_reply[0],0,sizeof(server_reply));
+				memset(&server_reply[0],0,4096);
 		}
 
 
