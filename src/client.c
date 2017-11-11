@@ -37,13 +37,14 @@ int client(char *dAddress, char *dPort, char *key)
     
 	int n;
 	int ivServerFlag=0;
-	unsigned char iv[8];
+	//unsigned char iv[8];
+	char *iv="abc";
 	unsigned char ivServer[8];
 	struct ctr_state state;
 
 	int sock;
 	struct sockaddr_in server;
-	char message[4096] , server_reply[4096], msg_out[4096], messageIv[4096];
+	char message[4096] , server_reply[4096], msg_out[4096], final_message[4096];
 
 	//Create socket
 	sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -70,20 +71,26 @@ int client(char *dAddress, char *dPort, char *key)
 
 	fprintf(stderr,"Connected\n");
 
-	RAND_bytes(iv, 8)
+	//RAND_bytes(iv, 8)
 	/* Handle the error */;
-	init_ctr(&state, iv);	
 	AES_KEY aes_key;
 
-	AES_set_encrypt_key(key, 128, &aes_key);
+	/*init_ctr(&state, iv);	
+	
+	AES_set_encrypt_key(key, 128, &aes_key);*/
            
-	/*if( send(sock , iv , strlen(iv) , 0) < 0)
+	/*if( send(sock , iv , 8 , 0) < 0)
 	{
-	    puts("Sending iv failed");
+	    //puts("Sending iv failed");
 	    return 1;
-	}*/
-	fprintf(stderr,"iv =%s",iv);
+	}
+	fprintf(stderr,"\n Client side iv =%s\n",iv);*/
 	//puts(iv);
+	
+	init_ctr_server(&state, iv);	
+		//fprintf(stderr,"key = %s\n",key);
+	if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+		fprintf(stderr,"\nproblem with AES set encrypt, server side\n");
 
 	while(1)
 	{    
@@ -92,31 +99,35 @@ int client(char *dAddress, char *dPort, char *key)
 		while((n=read(STDIN_FILENO,message, 4096))>0)
 		{
 			fprintf(stderr,"sending message = %s\n",message);
+			fprintf(stderr,"key = %s\n",key);
+			
+			fprintf(stderr,"client side: sending message %s\n",message);
+			AES_ctr128_encrypt(message, msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);
 
-			//AES_ctr128_encrypt(message, msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);
+			fprintf(stderr,"encrypted message %s\n",msg_out);
 
-			//fprintf(stderr,"encrypted message %s\n",msg_out);
 	
 
-
-			if( send(sock , message , n , 0) < 0)
+			if( write(sock , msg_out , n) < 0)
 			{
 			    fprintf(stderr,"Send failed");
 			    return 1;
 			}
-			memset(&message[0], 0 , 4096);
-			//memset(&msg_out[0], 0 , sizeof(msg_out));
+			memset(&message[0], 0 , sizeof(message));
+			memset(&msg_out[0], 0 , sizeof(msg_out));
 	
 		}
 
 		//fprintf(stderr,"Waiting");
-		while( (n=recv(sock , server_reply , 4096 , 0)) > 0)
+		while( (n=read(sock , server_reply , 4096)) > 0)
 		{
 
 				fprintf(stderr,"\nServer reply : %s\n",server_reply);
+				AES_ctr128_encrypt(server_reply, final_message, n, &aes_key, state.ivec, state.ecount, &state.num);
 				//puts("-------Server Reply --------");
-				write(STDOUT_FILENO, server_reply, n);
+				write(STDOUT_FILENO, final_message, n);
 				memset(&server_reply[0],0,4096);
+				memset(&final_message[0],0,4096);
 		}
 
 

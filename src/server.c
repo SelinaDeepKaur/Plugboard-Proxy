@@ -34,7 +34,8 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
     unsigned char ivS[8];
     int ivClientFlag=0;
     int ivServerFlag=0;
-    unsigned char ivClient[8];
+    //unsigned char ivClient[8];
+    char *ivClient = "abc";
     char message_client[4096];
     int ssh_sock;
     char message[4096] , server_reply[4096];
@@ -49,9 +50,9 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_desc == -1)
     {
-        printf("Could not create socket");
+        fprintf(stderr,"Could not create socket");
     }
-    puts("Socket created");
+    fprintf(stderr,"Socket created");
      
     //Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
@@ -67,7 +68,7 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
         perror("bind failed. Error");
         return 1;
     }
-    puts("bind done");
+    fprintf(stderr,"bind done");
      
     //Listen
     listen(socket_desc , 3);
@@ -89,7 +90,7 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 		perror("accept failed");
 		return 1;
 	    }
-	    puts("Connection accepted");
+	    fprintf(stderr,"Connection accepted");
 	    
 		
 	    
@@ -103,7 +104,7 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 	    {
 		printf("Could not create socket");
 	    }
-	    puts("Socket created");
+	    fprintf(stderr,"Socket created");
 	     
 	    
 	    server.sin_addr.s_addr = inet_addr(dAddress);
@@ -119,39 +120,46 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 	    }
 	    
 	     
-	    puts("Connected\n");
+	    fprintf(stderr,"Connected\n");
 	    fcntl(client_sock, F_SETFL, O_NONBLOCK);
 	    fcntl(ssh_sock, F_SETFL, O_NONBLOCK);
+	    init_ctr_server(&state, ivClient);
+	if((AES_set_encrypt_key(key, 128, &aes_key))<0)
+		fprintf(stderr,"\nproblem with AES set encrypt, server side\n");
+	    
 	    
 	    while(1) {
-		    while( (n=recv(client_sock , client_message , 4096 , 0)) > 0 )
+		    while( (n=read(client_sock , client_message , 4096)) > 0 )
 		    {   
 
-			    puts("Hi, this is server");
+			    fprintf(stderr,"Hi, this is server");
 			    if(0)
 			    //if(ivClientFlag==0)
 			    {
 				ivClientFlag=1;
-				//puts("iv  from client");
-				//puts(client_message);
+				/*fprintf(stderr,"\nServer reveived iv  from client");
+				fprintf(stderr,client_message);
 				strcpy(ivClient,client_message);
-				bzero(client_message,4096*sizeof(client_message[0]));
-				init_ctr_server(&state, ivClient);	
-
-				AES_set_encrypt_key(key, 128, &aes_key)
-		    		/* Handle the error */;
+				fprintf(stderr,"\nServer side: inside if clause for iv\n");
+				memset(&client_message[0],0,4096);*/
+				
+				
 			    }
 		
 			    else
 			    {
-			    
+			        fprintf(stderr,"\nServer side: inside else clause of iv\n");
 				//puts("key");
 				//puts(key);
+					
+				fprintf(stderr,"key = %s\n",key);
+				fprintf(stderr,"encrypted message from client = %s\n",client_message);
+				
 
-				//AES_ctr128_encrypt(client_message, client_msg_back, n, &aes_key, state.ivec, state.ecount, &state.num);
-
-				fprintf(stderr,"message from client ");
-				fprintf(stderr,client_message);
+				AES_ctr128_encrypt(client_message, client_msg_back, n, &aes_key, state.ivec, state.ecount, &state.num);
+				fprintf(stderr,"decrypted message from client = %s\n",client_msg_back);
+				//fprintf(stderr,"message from client ");
+				//fprintf(stderr,client_msg_back);
 				//socket
 
 
@@ -160,23 +168,27 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 				//Send some data
 				//puts("before send");
 
-				if( send(ssh_sock , client_message , n , 0) < 0)
+				if( write(ssh_sock , client_msg_back , n) < 0)
 				{
-				    puts("Send failed");
+				    fprintf(stderr,"Send failed");
 				    return 1;
 				}
 				//puts("return from send");
+				memset(&client_message[0],0,sizeof(client_message));
+			     	memset(&client_msg_back[0],0,sizeof(client_msg_back));
 			     }
-			     memset(&client_message[0],0,4096);
+			     
 			}	 
 				//Receive a reply from the server
-			while((n=recv(ssh_sock , server_reply , 4096, 0)) > 0)
+			while((n=read(ssh_sock , server_reply , 4096)) > 0)
 			{
 				  
 				fprintf(stderr,"Ssh----- reply %s :",server_reply);
 				//puts("before sending back to client\n");
-				write(client_sock , server_reply , n);
+				AES_ctr128_encrypt(server_reply, message_client, n, &aes_key, state.ivec, state.ecount, &state.num);
+				write(client_sock , message_client, n);
 				memset(&server_reply[0],0,4096);
+				memset(&message_client[0],0,4096);
 				//puts("after sending back to client\n");
 
 			}
