@@ -21,7 +21,7 @@ d) Description about the design of your pbproxy
 	Files:
 	1)src/pbproxy.c 
 
-	Takes in the command with the options [ -l, -k etc ]
+	Takes in the command with the options [ -l, -k etc ] (-k option provides the key file named "mykey" from which the key will be read) 
 	Converts hostnames to ip
 	Runs the server if -l option is supplied
 	Runs the client if -l option is not supplied
@@ -31,16 +31,19 @@ d) Description about the design of your pbproxy
 	Client establishes connection with the server.
 	Sends iv to the server.
 	Goes into an infinite loop to keep sending messages to the server from STDIN and to keep printing messages from the server to STDOUT.
+	It also receives an iv from the server.
 	It accepts a message in plain text format from STDIN, encrypts it and sends the encrypted messsage to the server.
-	Similarly it decrypts the encrypted messages that it receives from the server, using the iv that it generated earlier, before printing them to STDOUT.
+	Similarly it decrypts the encrypted messages that it receives from the server, using the iv that the server sent, before printing them to STDOUT.
 	The send and receive operations happen asynchronously.
 
 	3)src/server.c
 
 	Keeps accepting connections from varied clients in an infinite loop.
+	Receives an iv from the client.
+	Generates and sends and iv to the client.
 	Once a connection with a client is established, goes into an infinite loop to keep receiving messages from the client. 
-	Once it receives a message from a client, it decrypts it and relays it to some destination service.
-	Once receives the reply from the service, encrypts it using the iv that it already has and sends it back to the client.
+	Once it receives a message from a client, it decrypts it using the clients iv and relays it to some destination service.
+	Once receives the reply from the service, encrypts it using its own iv and sends it back to the client.
 	The send and receive operations happen asynchronously.
 
 e) References you cite during writing your code
