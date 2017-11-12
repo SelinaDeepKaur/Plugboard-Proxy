@@ -1,149 +1,137 @@
 //References https://stackoverflow.com/questions/3141860/aes-ctr-256-encryption-mode-of-operation-on-openssl
-/*
-    C ECHO client example using sockets
-*/
-#include<stdio.h> //printf
-#include<string.h>    //strlen
+#include <stdio.h> 
+#include <string.h>    
 #include <stdlib.h>
-#include<sys/socket.h>    //socket
-#include<arpa/inet.h> //inet_addr
+#include <sys/socket.h>
+#include <sys/select.h>    
+#include <arpa/inet.h> 
 #include <openssl/aes.h>
 #include <sys/types.h> 
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
+#include <sys/select.h>
+#include <sys/time.h>
+
+#include "../includes/server.h"
+#include "../includes/client.h"
+
 struct ctr_state {
-    unsigned char ivec[16];  /* ivec[0..7] is the IV, ivec[8..15] is the big-endian counter */
+    unsigned char ivec[16];  
     unsigned int num;
     unsigned char ecount[16];
     };
 int init_ctr(struct ctr_state *state, const unsigned char iv[8])
 	{
-	    /* aes_ctr128_encrypt requires 'num' and 'ecount' set to zero on the
-	     * first call. */
+	    
 	    state->num = 0;
 	    memset(state->ecount, 0, 16);
-
-	    /* Initialise counter in 'ivec' to 0 */
-	    memset(state->ivec + 8, 0, 8);
-
-	    /* Copy IV into 'ivec' */
+	    memset(state->ivec + 8, 0, 8);    
 	    memcpy(state->ivec, iv, 8);
+	    return 0;
 	}
 
 int client(char *dAddress, char *dPort, char *key)
 {
     
-	int n;
-	int ivServerFlag=0;
-	unsigned char iv[8];
-	//char *iv="abc";
-	//unsigned char ivServer[8];
+	int n, sock, r;
+	fd_set read_fds;
+	unsigned char iv[AES_BLOCK_SIZE];
 	struct ctr_state state;
-
-	int sock;
 	struct sockaddr_in server;
 	char message[4096] , server_reply[4096], msg_out[4096], final_message[4096];
-
-	//Create socket
 	sock = socket(AF_INET , SOCK_STREAM , 0);
 	if (sock == -1)
 	{
-	fprintf(stderr,"Could not create socket");
+		fprintf(stderr,"Could not create socket");
 	}
-	fprintf(stderr,"Socket created");
-
 	server.sin_addr.s_addr = inet_addr(dAddress);
-	//server.sin_addr.s_addr = inet_addr("127.0.0.1");
 	server.sin_family = AF_INET;
 	server.sin_port = htons( atoi(dPort) );
 
-	//Connect to remote server
-	if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+	r = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	if (r < 0)
 	{
-		perror("connect failed. Error");
+		fprintf(stderr,"connect failed. Error");
 		return 1;
 	}
+	//Creating iv
+	memset(&iv[0], 0 , sizeof(iv));
+	if((RAND_bytes(iv, AES_BLOCK_SIZE)<0))
+		{
+		fprintf(stderr,"\nError with RAND_bytes\n");
+		return -1;
+		}
 
-	
-
-	fprintf(stderr,"Connected\n");
-
-	RAND_bytes(iv, 8);
-	/* Handle the error */;
 	AES_KEY aes_key;
-
-	/*init_ctr(&state, iv);	
+	//Sending iv to Server
+	r= write(sock , iv , strlen((char *)iv));
 	
-	AES_set_encrypt_key(key, 128, &aes_key);*/
-           
-	
-	//puts(iv);
-	
-
-	if( write(sock , iv , strlen(iv)) < 0)
+	if(r<0)
 	{
-	    //puts("Sending iv failed");
-	    return 1;
+	    fprintf(stderr,"Sending iv failed");
+	    return -1;
 	}
-	init_ctr(&state, iv);	
-		//fprintf(stderr,"key = %s\n",key);
-	if((AES_set_encrypt_key(key, 128, &aes_key))<0)
-		fprintf(stderr,"\nproblem with AES set encrypt, server side\n");
 
-	fprintf(stderr,"\n Client side iv = %s  \n",iv);
-	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
-	fcntl(sock, F_SETFL, O_NONBLOCK);
+	init_ctr(&state, iv);		
+	if((AES_set_encrypt_key((unsigned char *)key, 128, &aes_key))<0)
+		{
+		fprintf(stderr,"\nproblem with AES set encrypt function\n");
+		return -1;
+		}
 
+	memset(&message[0], 0 , sizeof(message));
+	memset(&msg_out[0], 0 , sizeof(msg_out));
+	memset(&server_reply[0],0,sizeof(server_reply));
+	memset(&final_message[0],0,sizeof(final_message));
 	while(1)
 	{    
+		FD_ZERO(&read_fds);
+		FD_SET(STDIN_FILENO, &read_fds);
+		FD_SET(sock, &read_fds);
+		r = select(sock+1, &read_fds, NULL, NULL, NULL);
 
 
-		while((n=read(STDIN_FILENO,message, 4096))>0)
+		if (FD_ISSET(STDIN_FILENO, &read_fds)) 
 		{
-			fprintf(stderr,"sending message = %s\n",message);
-			fprintf(stderr,"key = %s\n",key);
-			
-			fprintf(stderr,"client side: sending message %s\n",message);
-			/*init_ctr_server(&state, iv);	
-			//fprintf(stderr,"key = %s\n",key);
-			if((AES_set_encrypt_key(key, 128, &aes_key))<0)
-				fprintf(stderr,"\nproblem with AES set encrypt, server side\n");*/
-			AES_ctr128_encrypt(message, msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);
-
-			fprintf(stderr,"encrypted message %s\n",msg_out);
-
-	
-			
-			if( write(sock , msg_out , n) < 0)
+			n= read(STDIN_FILENO,message, 4096);
+			if(n<0)
+			{
+			    fprintf(stderr,"Read from STDIN failed");
+			    break;
+			}
+			AES_ctr128_encrypt((unsigned char *)message, (unsigned char *)msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);			
+			if(write(sock , msg_out , n) < 0)
 			{
 			    fprintf(stderr,"Send failed");
-			    return 1;
+			    break;
 			}
+			usleep(15000);
 			memset(&message[0], 0 , sizeof(message));
 			memset(&msg_out[0], 0 , sizeof(msg_out));
-	
 		}
-
-		//fprintf(stderr,"Waiting");
-		while( (n=read(sock , server_reply , 4096)) > 0)
-		{
-
-				fprintf(stderr,"\nServer reply : %s\n",server_reply);
-				/*init_ctr_server(&state, iv);	
-			//fprintf(stderr,"key = %s\n",key);
-				if((AES_set_encrypt_key(key, 128, &aes_key))<0)
-					fprintf(stderr,"\nproblem with AES set encrypt, server side\n");*/
-				AES_ctr128_encrypt(server_reply, final_message, n, &aes_key, state.ivec, state.ecount, &state.num);
-				write(STDOUT_FILENO, final_message, n);
-				memset(&server_reply[0],0,4096);
-				memset(&final_message[0],0,4096);
+		else if (FD_ISSET(sock, &read_fds)) 
+		{	
+			n=read(sock , server_reply , 4096);
+			if(n<0)
+			{
+			    fprintf(stderr,"Read from server failed");
+			    break;
+			}
+			AES_ctr128_encrypt((unsigned char *)server_reply, (unsigned char *)final_message, n, &aes_key, state.ivec, state.ecount, &state.num);
+			n = write(STDOUT_FILENO, final_message, n);
+			usleep(15000);
+			if(n<0)
+			{
+			    fprintf(stderr,"Write to STDOUT failed");
+			    break;
+			}
+			memset(&server_reply[0],0,sizeof(server_reply));
+			memset(&final_message[0],0,sizeof(final_message));	
 		}
-
 
 	}
      
