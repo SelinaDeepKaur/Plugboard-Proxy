@@ -40,11 +40,11 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
     int socket_desc , client_sock , c ;
     struct sockaddr_in server , client;
 
-    AES_KEY aes_key;
+    AES_KEY aes_keyS, aes_keyC;
     int r;
     fd_set read_fds;
-    struct ctr_state state;
-    unsigned char ivClient[AES_BLOCK_SIZE];
+    struct ctr_state stateS, stateC;
+    unsigned char ivClient[AES_BLOCK_SIZE], ivByServer[AES_BLOCK_SIZE];
     char message_client[4096];
     int ssh_sock;
     char server_reply[4096], client_message[4096], client_msg_back[4096];
@@ -76,13 +76,15 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 		fprintf(stderr,"accept failed");
 		return 1;
 	}
-	//fprintf(stderr,"\nConnection accepted\n");   
+
+			
+
+	   
 	ssh_sock = socket(AF_INET , SOCK_STREAM , 0);
 	if (ssh_sock == -1)
 	{
 		fprintf(stderr,"Could not create socket");
-	}
-	//fprintf(stderr,"\nSocket created\n");    
+	}    
 	server.sin_addr.s_addr = inet_addr(dAddress);
 	server.sin_family = AF_INET;
 	server.sin_port = htons( atoi(dPort) );
@@ -92,11 +94,37 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 		fprintf(stderr,"connect failed. Error");
 		return 1;
 	}
+
+	/* Receiving the client's iv */
 	memset(&ivClient[0],0,sizeof(ivClient));			
-	read(client_sock , ivClient , 4096);
+	r = read(client_sock , ivClient , AES_BLOCK_SIZE);
+	if(r<0)
+	{
+	    fprintf(stderr,"Read iv from client failed");
+	    return -1;
+	}
+
+	init_ctr_server(&stateC, ivClient);
+	if((AES_set_encrypt_key((unsigned char *)key, 128, &aes_keyC))<0)
+		fprintf(stderr,"\nproblem with AES set encrypt, server side\n");
+
+	/* Server generating the iv and sending it to client */
+	memset(&ivByServer[0], 0 , sizeof(ivByServer));
+	if((RAND_bytes(ivByServer, AES_BLOCK_SIZE)<0))
+	{
+		fprintf(stderr,"\nError with RAND_bytes\n");
+		return -1;
+	}
+
+	r = write(client_sock , ivByServer , AES_BLOCK_SIZE);
+	if(r<0)
+	{
+	    fprintf(stderr,"Sending iv failed");
+	    return -1;
+	}
 	
-	init_ctr_server(&state, ivClient);
-	if((AES_set_encrypt_key((unsigned char *)key, 128, &aes_key))<0)
+	init_ctr_server(&stateS, ivByServer);
+	if((AES_set_encrypt_key((unsigned char *)key, 128, &aes_keyS))<0)
 		fprintf(stderr,"\nproblem with AES set encrypt, server side\n");
 	
 	memset(&server_reply[0],0,sizeof(server_reply));
@@ -116,7 +144,7 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 				n=read(client_sock , client_message , 4096);
 				if(n>0)
 				{	
-					AES_ctr128_encrypt((unsigned char *)client_message, (unsigned char *)client_msg_back, n, &aes_key, state.ivec, state.ecount, &state.num);
+					AES_ctr128_encrypt((unsigned char *)client_message, (unsigned char *)client_msg_back, n, &aes_keyC, stateC.ivec, stateC.ecount, &stateC.num);
 					if( write(ssh_sock , client_msg_back , n) < 0)
 					{
 					    fprintf(stderr,"Send failed");
@@ -137,7 +165,7 @@ int server(char *dAddress, char *dPort, char *serverPort, char *key)
 					n=read(ssh_sock , server_reply , 4096);
 					if(n>0)
 					{  
-						AES_ctr128_encrypt((unsigned char *)server_reply, (unsigned char *)message_client, n, &aes_key, state.ivec, state.ecount, &state.num);
+						AES_ctr128_encrypt((unsigned char *)server_reply, (unsigned char *)message_client, n, &aes_keyS, stateS.ivec, stateS.ecount, &stateS.num);
 						if( write(client_sock , message_client, n)<0)
 							break;
 						usleep(15000);

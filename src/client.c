@@ -39,8 +39,9 @@ int client(char *dAddress, char *dPort, char *key)
     
 	int n, sock, r;
 	fd_set read_fds;
-	unsigned char iv[AES_BLOCK_SIZE];
-	struct ctr_state state;
+	unsigned char iv[AES_BLOCK_SIZE], ivServer[AES_BLOCK_SIZE];
+	struct ctr_state stateC, stateS;
+	AES_KEY aes_keyC, aes_keyS;
 	struct sockaddr_in server;
 	char message[4096] , server_reply[4096], msg_out[4096], final_message[4096];
 	sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -58,17 +59,16 @@ int client(char *dAddress, char *dPort, char *key)
 		fprintf(stderr,"connect failed. Error");
 		return 1;
 	}
-	//Creating iv
+	/* Creating iv */
 	memset(&iv[0], 0 , sizeof(iv));
 	if((RAND_bytes(iv, AES_BLOCK_SIZE)<0))
 		{
 		fprintf(stderr,"\nError with RAND_bytes\n");
 		return -1;
 		}
-
-	AES_KEY aes_key;
-	//Sending iv to Server
-	r= write(sock , iv , strlen((char *)iv));
+	
+	/* Sending iv to Server */
+	r= write(sock , iv , AES_BLOCK_SIZE);
 	
 	if(r<0)
 	{
@@ -76,12 +76,29 @@ int client(char *dAddress, char *dPort, char *key)
 	    return -1;
 	}
 
-	init_ctr(&state, iv);		
-	if((AES_set_encrypt_key((unsigned char *)key, 128, &aes_key))<0)
+	init_ctr(&stateC, iv);		
+	if((AES_set_encrypt_key((unsigned char *)key, 128, &aes_keyC))<0)
 		{
 		fprintf(stderr,"\nproblem with AES set encrypt function\n");
 		return -1;
 		}
+
+	/* Receiving the server's iv */
+	memset(&ivServer[0],0,sizeof(ivServer));			
+	r = read(sock , ivServer , AES_BLOCK_SIZE);
+	if(r<0)
+	{
+	    fprintf(stderr,"Reading iv from server failed");
+	    return -1;
+	}
+	init_ctr(&stateS, ivServer);		
+	if((AES_set_encrypt_key((unsigned char *)key, 128, &aes_keyS))<0)
+		{
+		fprintf(stderr,"\nproblem with AES set encrypt function\n");
+		return -1;
+		}
+	
+
 
 	memset(&message[0], 0 , sizeof(message));
 	memset(&msg_out[0], 0 , sizeof(msg_out));
@@ -103,7 +120,7 @@ int client(char *dAddress, char *dPort, char *key)
 			    fprintf(stderr,"Read from STDIN failed");
 			    break;
 			}
-			AES_ctr128_encrypt((unsigned char *)message, (unsigned char *)msg_out, n, &aes_key, state.ivec, state.ecount, &state.num);			
+			AES_ctr128_encrypt((unsigned char *)message, (unsigned char *)msg_out, n, &aes_keyC, stateC.ivec, stateC.ecount, &stateC.num);		
 			if(write(sock , msg_out , n) < 0)
 			{
 			    fprintf(stderr,"Send failed");
@@ -121,7 +138,8 @@ int client(char *dAddress, char *dPort, char *key)
 			    fprintf(stderr,"Read from server failed");
 			    break;
 			}
-			AES_ctr128_encrypt((unsigned char *)server_reply, (unsigned char *)final_message, n, &aes_key, state.ivec, state.ecount, &state.num);
+
+			AES_ctr128_encrypt((unsigned char *)server_reply, (unsigned char *)final_message, n, &aes_keyS, stateS.ivec, stateS.ecount, &stateS.num);
 			n = write(STDOUT_FILENO, final_message, n);
 			usleep(15000);
 			if(n<0)
