@@ -47,7 +47,7 @@ d) Design of pbproxy:
 	Once receives the reply from the service, encrypts it using its own iv and sends it back to the client.
 	The send and receive operations happen asynchronously.
 
-e) References you cite during writing your code
+e) References 
 
 	http://www.binarytides.com/server-client-example-c-sockets-linux/
 	https://stackoverflow.com/questions/3141860/aes-ctr-256-encryption-mode-of-operation-on-openssl
