@@ -61,9 +61,18 @@ int main(int argc, char **argv)
 	    FILE *p;
    	    p = fopen(keyfile, "r");
 	    char key[1000]={0};
+	    char k[17]={0};
 	    if(p)
 	    {
 		fgets(key, 1000,(FILE*)p);
+		int x;
+		for(int j=0;j<32;j+=2)
+		{
+			char t[3]={key[j],key[j+1],'\0'};
+			x=(int)strtol(t,NULL,16);
+			k[j/2]=x;
+		}
+			
 	    }
 	    else
 	    {
@@ -73,11 +82,11 @@ int main(int argc, char **argv)
 
 	    if(serverPort !=NULL)
 	    {
-		server(ip,dPort,serverPort,key);
+		server(ip,dPort,serverPort,k);
 	    }
 	    else
 	    {
-		client(ip,dPort,key);
+		client(ip,dPort,k);
 	    }
 	
 	    

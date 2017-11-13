@@ -36,7 +36,6 @@ int init_ctr(struct ctr_state *state, const unsigned char iv[8])
 
 int client(char *dAddress, char *dPort, char *key)
 {
-    
 	int n, sock, r;
 	fd_set read_fds;
 	unsigned char iv[AES_BLOCK_SIZE], ivServer[AES_BLOCK_SIZE];

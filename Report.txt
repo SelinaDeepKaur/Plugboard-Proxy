@@ -22,6 +22,7 @@ d) Description about the design of your pbproxy
 	1)src/pbproxy.c 
 
 	Takes in the command with the options [ -l, -k etc ] (-k option provides the key file named "mykey" from which the key will be read) 
+	(The key that is read from the file is a hexadecimal string. Each string byte (eg 'FF') is converted into an actual byte value).
 	Converts hostnames to ip
 	Runs the server if -l option is supplied
 	Runs the client if -l option is not supplied
